@@ -3,8 +3,11 @@ import time
 import argparse
 import requests
 from typing import Dict, Any
-# from openai import OpenAI
+from openai import OpenAI
+import os
+import sys
 
+os.environ["OPENAI_API_KEY"] = ""
 
 class AppStoreConnect:
     BASE_URL = "https://api.appstoreconnect.apple.com/v1"
@@ -191,33 +194,56 @@ def truncate_keywords(keywords: str, max_length: int = 100) -> str:
     return ', '.join(truncated_keywords)
 
 def translate_content(text: str, target_language: str, is_keywords: bool = False) -> str:
+    if not text:  # Boş metin kontrolü ekleyelim
+        return ""
+        
     client = OpenAI()
     
+    # Daha spesifik çeviri talimatları
     system_message = (
-        "You are a professional translator. "
-        f"Translate the following text to {target_language}. "
-        "Maintain the tone and marketing style of the original text."
+        "You are a professional translator specializing in app store descriptions and keywords. "
+        f"Translate the following text from English to {target_language}. "
+        "Maintain the marketing style and ensure the translation is natural and appealing to "
+        f"{target_language}-speaking users. "
     )
     
     if is_keywords:
-        system_message += " For keywords, provide a comma-separated list and keep it concise."
+        system_message += (
+            "Provide keywords as a comma-separated list. "
+            "Focus on commonly searched terms in the target language. "
+            "Keep keywords concise and relevant to the app."
+        )
     
-    response = client.chat.completions.create(
-        model="gpt-4",
-        messages=[
-            {"role": "system", "content": system_message},
-            {"role": "user", "content": text}
-        ]
-    )
+    try:
+        response = client.chat.completions.create(
+            model="gpt-3.5-turbo",
+            messages=[
+                {"role": "system", "content": system_message},
+                {"role": "user", "content": text}
+            ],
+            temperature=0.7
+        )
 
-    translated_text = response.choices[0].message.content
-    
-    if is_keywords:
-        translated_text = truncate_keywords(translated_text)
-    
-    return translated_text
+        translated_text = response.choices[0].message.content.strip()
+        
+        if is_keywords:
+            translated_text = truncate_keywords(translated_text)
+        
+        print(f"Original text: {text}")
+        print(f"Translated text: {translated_text}")
+        
+        return translated_text
+        
+    except Exception as e:
+        print(f"Translation error: {str(e)}")
+        return text  # Hata durumunda orijinal metni döndür
 
 if __name__ == "__main__":
+    # API anahtarını doğru şekilde ayarlayalım
+    if not os.getenv("OPENAI_API_KEY"):
+        print("Error: OPENAI_API_KEY environment variable is not set!")
+        sys.exit(1)
+
     print("""
 888                              888 888   
 888                              888 888   
@@ -234,12 +260,14 @@ Y88b.  888     888  888      X88 888 Y88b.
     parser.add_argument("--api_key_id", required=True, help="API Key ID")
     parser.add_argument("--issuer_id", required=True, help="Issuer ID")
     parser.add_argument("--auth_key_path", required=True, help="Path to the private key file")
+    parser.add_argument("--app_id", required=True, help="App Store app ID")
 
     args = parser.parse_args()
 
     API_KEY_ID = args.api_key_id
     ISSUER_ID = args.issuer_id
     AUTH_KEY_PATH = args.auth_key_path
+    APP_ID = args.app_id
     
     with open(AUTH_KEY_PATH, "r") as file:
         PRIVATE_KEY = file.read()
@@ -289,9 +317,7 @@ Y88b.  888     888  888      X88 888 Y88b.
 
     client = AppStoreConnect(API_KEY_ID, ISSUER_ID, PRIVATE_KEY)
 
-    app_id = input("App ID: ")
-
-    version_id = client.get_latest_app_store_version(app_id)
+    version_id = client.get_latest_app_store_version(APP_ID)
     print(f"\nLatest version ID: {version_id}")
 
     localizations = client.get_app_store_version_localizations(version_id)
@@ -299,7 +325,7 @@ Y88b.  888     888  888      X88 888 Y88b.
 
     source_localization = next(
         (loc for loc in localizations.get("data", [])
-         if loc["attributes"]["locale"] == "en-GB"),
+         if loc["attributes"]["locale"] == "en-US"),
         None
     )
 
@@ -307,7 +333,10 @@ Y88b.  888     888  888      X88 888 Y88b.
         print(f"\nFound source localization: {source_localization}")
         source_description = source_localization["attributes"].get("description", "")
         source_keywords = source_localization["attributes"].get("keywords", "")
-
+        
+        print(f"\nSource description length: {len(source_description)}")
+        print(f"Source keywords: {source_keywords}")
+        
         existing_localizations = client.get_app_store_version_localizations(version_id)
         existing_locales = {}
         for loc in existing_localizations.get("data", []):
@@ -320,8 +349,12 @@ Y88b.  888     888  888      X88 888 Y88b.
             print(f"\nProcessing {language} ({locale})...")
 
             try:
+                print(f"\nStarting translation for {language}...")
                 translated_description = translate_content(source_description, language)
+                print(f"Description translation completed for {language}")
+                
                 translated_keywords = translate_content(source_keywords, language, is_keywords=True)
+                print(f"Keywords translation completed for {language}")
                 
                 max_length = keyword_limits.get(locale, 100)
                 translated_keywords = truncate_keywords(translated_keywords, max_length)
