@@ -537,35 +537,6 @@ Y88b.  888     888  888      X88 888 Y88b.
     # Process translation options
     TRANSLATE_APP_INFO = args.translate_app_info
     TRANSLATE_APP_STORE = args.translate_app_store
-    
-    # Handle special flags
-    if args.only_app_info:
-        TRANSLATE_APP_INFO = True
-        TRANSLATE_APP_STORE = False
-        print("Note: Only App Information (name and subtitle) will be translated.")
-    elif args.only_app_store:
-        TRANSLATE_APP_INFO = False
-        TRANSLATE_APP_STORE = True
-        print("Note: Only App Store content (description and keywords) will be translated.")
-    
-    # Validate source locale
-    if SOURCE_LOCALE not in target_languages and not SOURCE_LOCALE.startswith("en-"):
-        print(f"Warning: Source locale '{SOURCE_LOCALE}' is not in our known locales list.")
-        print("It will still be used, but may cause issues with the App Store API.")
-        print("Consider using one of the following locales:")
-        print(", ".join(sorted(target_languages.keys())))
-        print("\nProceeding with the provided locale anyway...")
-    
-    # Validate OpenAI model
-    known_models = ["gpt-4", "gpt-3.5-turbo", "gpt-4-turbo"]
-    if OPENAI_MODEL not in known_models:
-        print(f"Warning: OpenAI model '{OPENAI_MODEL}' is not in our list of known models.")
-        print("It will still be used, but may cause API errors if invalid.")
-        print("Known models are:", ", ".join(known_models))
-        print("\nProceeding with the provided model anyway...")
-    
-    with open(AUTH_KEY_PATH, "r") as file:
-        PRIVATE_KEY = file.read()
 
     target_languages = {
         "it": "Italian",
@@ -607,6 +578,35 @@ Y88b.  888     888  888      X88 888 Y88b.
         "uk": "Ukrainian",
         "vi": "Vietnamese"
     }
+    
+    # Handle special flags
+    if args.only_app_info:
+        TRANSLATE_APP_INFO = True
+        TRANSLATE_APP_STORE = False
+        print("Note: Only App Information (name and subtitle) will be translated.")
+    elif args.only_app_store:
+        TRANSLATE_APP_INFO = False
+        TRANSLATE_APP_STORE = True
+        print("Note: Only App Store content (description and keywords) will be translated.")
+    
+    # Validate source locale
+    if SOURCE_LOCALE not in target_languages and not SOURCE_LOCALE.startswith("en-"):
+        print(f"Warning: Source locale '{SOURCE_LOCALE}' is not in our known locales list.")
+        print("It will still be used, but may cause issues with the App Store API.")
+        print("Consider using one of the following locales:")
+        print(", ".join(sorted(target_languages.keys())))
+        print("\nProceeding with the provided locale anyway...")
+    
+    # Validate OpenAI model
+    known_models = ["gpt-4", "gpt-3.5-turbo", "gpt-4-turbo"]
+    if OPENAI_MODEL not in known_models:
+        print(f"Warning: OpenAI model '{OPENAI_MODEL}' is not in our list of known models.")
+        print("It will still be used, but may cause API errors if invalid.")
+        print("Known models are:", ", ".join(known_models))
+        print("\nProceeding with the provided model anyway...")
+    
+    with open(AUTH_KEY_PATH, "r") as file:
+        PRIVATE_KEY = file.read()
 
     keyword_limits = {locale: 100 for locale in target_languages.keys()}
 
